@@ -244,10 +244,9 @@ if run_calc:
                 st.markdown("• _________________________________________________________________________________")
 
                 sig1, sig2 = st.columns(2)
-                with sig1:
-                    st.markdown("**Operator Signature:** _____________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
-                with sig2:
-                    st.markdown("**Supervisor Signature:** ___________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
+               
+                st.markdown("**Operator Signature:** ______________________")
+                st.markdown("**Supervisor Signature:** ___________________")
 
         except Exception as e:
             st.error(f"Calculation error encountered: {e}")

@@ -154,4 +154,72 @@ if run_calc:
             st.divider()
 
             # --- SECTION 2: ALLOWANCE-ADJUSTED INCENTIVE TARGETS ---
-            st.subheader("🎯 Section 2: Allowance-Adjusted Incentive Targets (100% to
+            st.subheader("🎯 Section 2: Allowance-Adjusted Incentive Targets (100% to 140%)")
+            st.caption(f"Incentive targets starting from the adjusted 100% standard (Raw Baseline minus {total_allowance_pct:.1f}% F&P allowance).")
+
+            tier_cols = st.columns(5)
+            tiers = [
+                ("100% Standard", 1.00),
+                ("110% Target", 1.10),
+                ("120% Target", 1.20),
+                ("130% Target", 1.30),
+                ("140% Target", 1.40)
+            ]
+
+            for i, (tier_name, multiplier) in enumerate(tiers):
+                # Targets calculated directly off the allowance-adjusted baseline
+                target_hourly = adjusted_baseline_hourly_output * multiplier
+                
+                # Check if target exceeds absolute machine capacity limit
+                is_physically_impossible = target_hourly > total_absolute_max_hourly_output
+                
+                with tier_cols[i]:
+                    if is_physically_impossible:
+                        st.metric(
+                            label=tier_name,
+                            value=f"{target_hourly:.1f} PPH",
+                            delta="❌ Machine Capped",
+                            delta_color="inverse"
+                        )
+                    else:
+                        st.metric(
+                            label=tier_name,
+                            value=f"{target_hourly:.1f} PPH",
+                            delta="✅ Achievable",
+                            delta_color="normal"
+                        )
+
+            st.divider()
+
+            # --- 7. DETAILED MOLD BREAKDOWN & SHIFT SUMMARY ---
+            st.subheader("📋 Individual Mold Station Performance & Ceiling Breakdown")
+            df_molds = pd.DataFrame(mold_breakdown)
+            st.dataframe(df_molds, use_container_width=True)
+            
+            st.subheader("⏱️ Shift Summary & Workload Breakdown")
+            summary_data = {
+                "Metric Description": [
+                    "Total Active Mold Stations in Circuit",
+                    "Net Active Work per Circuit (Walk + Load)",
+                    "Base Circuit Cycle Time",
+                    "Operator Active Workload (%)",
+                    "Pure Technical Baseline Output (PPH)",
+                    "Total F&P Allowance Deduction (%)",
+                    "Allowance-Adjusted 100% Standard (PPH)",
+                    "Absolute Machine Capacity Ceiling (PPH)"
+                ],
+                "Value": [
+                    f"{num_molds} stations",
+                    f"{net_active_work:.1f} seconds",
+                    f"{base_circuit_time:.1f} seconds",
+                    f"{operator_active_utilization:.1f}%",
+                    f"{total_raw_baseline_hourly_output:.1f} PPH",
+                    f"{total_allowance_pct:.1f}%",
+                    f"{adjusted_baseline_hourly_output:.1f} PPH",
+                    f"{total_absolute_max_hourly_output:.1f} PPH"
+                ]
+            }
+            st.table(pd.DataFrame(summary_data))
+            
+        except Exception as e:
+            st.error(f"⚠️ Calculation error encountered: {e}")

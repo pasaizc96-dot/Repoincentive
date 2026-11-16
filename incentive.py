@@ -15,7 +15,7 @@ with st.sidebar:
     personal_pct = st.number_input("Personal Needs Allowance (%)", value=6.0, step=0.5)
     total_allowance_pct = fatigue_pct + personal_pct
     total_allowance_decimal = total_allowance_pct / 100.0
-    st.caption(f"Total F&P Allowance: **{total_allowance_pct:.1f}%**")
+    st.caption(f"Total F&P Allowance Deduction: **{total_allowance_pct:.1f}%**")
     
     st.divider()
     st.header("🚶 Physical Constraints")
@@ -130,7 +130,7 @@ if run_calc:
                     'Efficiency vs Cap (%)': round(max_possible_efficiency_pct, 1)
                 })
                 
-            # Apply Allowance adjustment to baseline (e.g., 400 PPH with 10% allowance becomes 360 PPH)
+            # Allowance-Adjusted Baseline (100% Standard = Raw Baseline minus Allowance %)
             adjusted_baseline_hourly_output = total_raw_baseline_hourly_output * (1.0 - total_allowance_decimal)
                 
             if total_absolute_max_hourly_output > 0:
@@ -141,82 +141,18 @@ if run_calc:
             # --- 5. RESULTS DISPLAY ---
             st.success("Calculations Complete!")
             
-            # Top-level KPI Metrics
+            # --- SECTION 1: PURE TECHNICAL BASELINE ---
+            st.subheader("📊 Section 1: Pure Technical Baseline (Unadjusted)")
+            st.caption("Core engineering metrics assuming 100% steady-state work with no allowances applied.")
+            
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Allowance-Adjusted Baseline (PPH)", f"{adjusted_baseline_hourly_output:.1f}", help="Raw baseline adjusted downward by F&P allowance percentage")
+            col1.metric("Pure Raw Baseline PPH", f"{total_raw_baseline_hourly_output:.1f}", help="Actual expected hourly output based purely on circuit pacing")
             col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical ceiling if machines never waited for operator")
             col3.metric("Operator Active Workload", f"{operator_active_utilization:.1f}%", help="Pure active work time vs circuit time")
             col4.metric("Circuit Balance Ratio", f"{overall_efficiency_ratio:.1f}%", delta="Machine Constrained" if overall_efficiency_ratio < 100 else "Fully Balanced", delta_color="inverse")
 
             st.divider()
 
-            # --- 6. BONUS TIER KPIS VS REALITY VALIDATION ---
-            st.subheader("🎯 Incentive Bonus Target Thresholds vs. Machine Limits")
-            st.caption("Validating target output brackets against the absolute machine-capped physical threshold.")
-
-            tier_cols = st.columns(4)
-            tiers = [
-                ("110% Target", 1.10),
-                ("120% Target", 1.20),
-                ("130% Target", 1.30),
-                ("140% Target", 1.40)
-            ]
-
-            for i, (tier_name, multiplier) in enumerate(tiers):
-                # Targets calculated directly off the allowance-adjusted baseline
-                target_hourly = adjusted_baseline_hourly_output * multiplier
-                
-                # Check if target exceeds absolute machine capacity limit
-                is_physically_impossible = target_hourly > total_absolute_max_hourly_output
-                
-                with tier_cols[i]:
-                    if is_physically_impossible:
-                        st.metric(
-                            label=tier_name,
-                            value=f"{target_hourly:.1f} PPH",
-                            delta="❌ Not Achievable (Machine Capped)",
-                            delta_color="inverse"
-                        )
-                    else:
-                        st.metric(
-                            label=tier_name,
-                            value=f"{target_hourly:.1f} PPH",
-                            delta="✅ Achievable",
-                            delta_color="normal"
-                        )
-
-            st.divider()
-
-            # --- 7. DETAILED MOLD BREAKDOWN TABLE ---
-            st.subheader("📋 Individual Mold Station Performance & Ceiling Breakdown")
-            df_molds = pd.DataFrame(mold_breakdown)
-            st.dataframe(df_molds, use_container_width=True)
-            
-            # Shift breakdown summary table
-            st.subheader("⏱️ Shift Summary & Workload Breakdown")
-            summary_data = {
-                "Metric Description": [
-                    "Total Active Mold Stations in Circuit",
-                    "Net Active Work per Circuit (Walk + Load)",
-                    "Total F&P Allowance (%)",
-                    "Base Circuit Cycle Time",
-                    "Operator Active Workload (%)",
-                    "Raw Physical Baseline Output (PPH)",
-                    "Allowance-Adjusted Baseline Output (PPH)",
-                    "Absolute Machine Capacity Ceiling (PPH)"
-                ],
-                "Value": [
-                    f"{num_molds} stations",
-                    f"{net_active_work:.1f} seconds",
-                    f"{total_allowance_pct:.1f}%",
-                    f"{base_circuit_time:.1f} seconds",
-                    f"{operator_active_utilization:.1f}%",
-                    f"{total_raw_baseline_hourly_output:.1f} PPH",
-                    f"{adjusted_baseline_hourly_output:.1f} PPH",
-                    f"{total_absolute_max_hourly_output:.1f} PPH"
-                ]
-            }
-            st.table(pd.DataFrame(summary_data))
-            
-        except Exception as e:
-            st.error(f"⚠️ Calculation error encountered: {e}")
+            # --- SECTION 2: ALLOWANCE-ADJUSTED INCENTIVE TARGETS ---
+            st.subheader("🎯 Section 2: Allowance-Adjusted Incentive Targets (100% to 140%)")
+            st.caption(f"Incentive

@@ -10,11 +10,11 @@ st.title("👤 Single Operator Multi-Mold Productivity & Bonus Calculator")
 with st.sidebar:
     st.header("⚙️ Industrial Engineering Factors")
     
-    # Allowances used as a workload/rest factor, not an artificial output inflator
+    # Allowances applied as an earned incentive multiplier
     fatigue_pct = st.number_input("Fatigue Allowance (%)", value=8.0, step=0.5)
     personal_pct = st.number_input("Personal Needs Allowance (%)", value=6.0, step=0.5)
-    total_allowance_factor = 1.0 + ((fatigue_pct + personal_pct) / 100.0)
-    st.caption(f"F&P Allowance Time Multiplier: **{total_allowance_factor:.3f}x**")
+    total_allowance_multiplier = 1.0 + ((fatigue_pct + personal_pct) / 100.0)
+    st.caption(f"F&P Allowance Multiplier: **{total_allowance_multiplier:.3f}x**")
     
     st.divider()
     st.header("🚶 Physical Constraints")
@@ -87,16 +87,12 @@ if run_calc:
             # Operator baseline cycle time for the circuit (pacing)
             base_circuit_time = max(net_active_work, max_machine_constraint)
             
-            # Standard circuit time including F&P allowances for workload tracking
-            standard_circuit_time = base_circuit_time * total_allowance_factor
-            
-            # Operator utilization metrics
+            # Operator active utilization percentage
             operator_active_utilization = (net_active_work / base_circuit_time) * 100 if base_circuit_time > 0 else 0
-            operator_standard_workload = (net_active_work / standard_circuit_time) * 100 if standard_circuit_time > 0 else 0
             
             # 3. Output Calculations per mold station
             mold_breakdown = []
-            total_baseline_hourly_output = 0
+            total_raw_baseline_hourly_output = 0
             total_absolute_max_hourly_output = 0
             
             for m in active_molds:
@@ -114,12 +110,12 @@ if run_calc:
                     circuits_needed = 1
                     actual_visit_interval = machine_min_cycle
                 
-                mold_baseline_hourly_out = (3600 / actual_visit_interval) * parts_per_cycle if actual_visit_interval > 0 else 0
-                total_baseline_hourly_output += mold_baseline_hourly_out
+                mold_raw_baseline_out = (3600 / actual_visit_interval) * parts_per_cycle if actual_visit_interval > 0 else 0
+                total_raw_baseline_hourly_output += mold_raw_baseline_out
                 
                 # Machine utilization relative to operator circuit visit interval
                 m_util = (machine_min_cycle / actual_visit_interval) * 100 if actual_visit_interval > 0 else 0
-                max_possible_efficiency_pct = (mold_baseline_hourly_out / max_mold_hourly_out) * 100 if max_mold_hourly_out > 0 else 0
+                max_possible_efficiency_pct = (mold_raw_baseline_out / max_mold_hourly_out) * 100 if max_mold_hourly_out > 0 else 0
                 
                 mold_breakdown.append({
                     'Station ID': m['id'],
@@ -128,31 +124,34 @@ if run_calc:
                     'Min Cycle (s)': machine_min_cycle,
                     'Visit Interval (s)': round(actual_visit_interval, 1),
                     'Machine Util (%)': round(m_util, 1),
-                    'Baseline PPH': round(mold_baseline_hourly_out, 1),
+                    'Raw Baseline PPH': round(mold_raw_baseline_out, 1),
                     'Absolute Max PPH': round(max_mold_hourly_out, 1),
                     'Efficiency vs Cap (%)': round(max_possible_efficiency_pct, 1)
                 })
                 
             if total_absolute_max_hourly_output > 0:
-                overall_efficiency_ratio = (total_baseline_hourly_output / total_absolute_max_hourly_output) * 100
+                overall_efficiency_ratio = (total_raw_baseline_hourly_output / total_absolute_max_hourly_output) * 100
             else:
                 overall_efficiency_ratio = 0
+
+            # Calculate Allowance-Adjusted (Earned) Baseline Output
+            total_earned_baseline_output = total_raw_baseline_hourly_output * total_allowance_multiplier
 
             # --- 5. RESULTS DISPLAY ---
             st.success("Calculations Complete!")
             
             # Top-level KPI Metrics
             col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Standard Baseline Output (PPH)", f"{total_baseline_hourly_output:.1f}", help="Actual expected hourly output based on circuit pacing")
-            col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical ceiling if machines never waited for operator")
-            col3.metric("Operator Active Workload", f"{operator_active_utilization:.1f}%", help="Pure active work time vs circuit time")
+            col1.metric("Earned Baseline (100% + F&P)", f"{total_earned_baseline_output:.1f} PPH", help="Baseline output scaled with Fatigue & Personal allowance multiplier")
+            col2.metric("Raw Standard Baseline", f"{total_raw_baseline_hourly_output:.1f} PPH", help="Pure physical circuit baseline output without allowance inflation")
+            col3.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical ceiling if machines never waited for operator")
             col4.metric("Circuit Balance Ratio", f"{overall_efficiency_ratio:.1f}%", delta="Machine Constrained" if overall_efficiency_ratio < 100 else "Fully Balanced", delta_color="inverse")
 
             st.divider()
 
             # --- 6. BONUS TIER KPIS VS REALITY VALIDATION ---
             st.subheader("🎯 Incentive Bonus Target Thresholds vs. Machine Limits")
-            st.caption("Validating target output brackets against the absolute machine-capped physical threshold.")
+            st.caption("Validating allowance-adjusted target output brackets against the absolute machine-capped physical threshold.")
 
             tier_cols = st.columns(4)
             tiers = [
@@ -163,8 +162,8 @@ if run_calc:
             ]
 
             for i, (tier_name, multiplier) in enumerate(tiers):
-                # Targets calculated directly off the clean physical baseline output
-                target_hourly = total_baseline_hourly_output * multiplier
+                # Targets are calculated based on the Earned Allowance Baseline
+                target_hourly = total_earned_baseline_output * multiplier
                 
                 # Check if target exceeds absolute machine capacity limit
                 is_physically_impossible = target_hourly > total_absolute_max_hourly_output
@@ -198,21 +197,21 @@ if run_calc:
                 "Metric Description": [
                     "Total Active Mold Stations in Circuit",
                     "Net Active Work per Circuit (Walk + Load)",
-                    "F&P Allowance Factor",
                     "Base Circuit Cycle Time",
                     "Operator Active Workload (%)",
-                    "Operator Standard Workload (with F&P)",
-                    "Baseline Output (PPH)",
+                    "Raw Standard Baseline Output (PPH)",
+                    "F&P Allowance Multiplier",
+                    "Earned Baseline Output (100% Adjusted)",
                     "Absolute Machine Capacity Ceiling (PPH)"
                 ],
                 "Value": [
                     f"{num_molds} stations",
                     f"{net_active_work:.1f} seconds",
-                    f"{total_allowance_factor:.3f}x ({fatigue_pct + personal_pct}% total allowance)",
                     f"{base_circuit_time:.1f} seconds",
                     f"{operator_active_utilization:.1f}%",
-                    f"{operator_standard_workload:.1f}%",
-                    f"{total_baseline_hourly_output:.1f} PPH",
+                    f"{total_raw_baseline_hourly_output:.1f} PPH",
+                    f"{total_allowance_multiplier:.3f}x ({fatigue_pct + personal_pct}% total)",
+                    f"{total_earned_baseline_output:.1f} PPH",
                     f"{total_absolute_max_hourly_output:.1f} PPH"
                 ]
             }

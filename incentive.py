@@ -132,4 +132,44 @@ if st.button("🚀 Calculate Operator Productivity & Incentive KPIs"):
             ("110% Tier", 1.10),
             ("120% Tier", 1.20),
             ("130% Tier", 1.30),
-            ("140%
+            ("140% Tier", 1.40)
+        ]
+
+        for i, (tier_name, multiplier) in enumerate(tiers):
+            tier_hourly = total_hourly_output * multiplier
+            tier_shift = tier_hourly * shift_hours
+            with tier_cols[i]:
+                st.metric(
+                    label=tier_name,
+                    value=f"{tier_hourly:.1f} PPH",
+                    delta=f"{tier_shift:,.0f} parts/shift"
+                )
+
+        st.divider()
+
+        # --- 7. DETAILED MOLD BREAKDOWN TABLE ---
+        st.subheader("📋 Individual Mold Station Performance Breakdown")
+        df_molds = pd.DataFrame(mold_breakdown)
+        st.dataframe(df_molds, use_container_width=True)
+        
+        # Shift breakdown summary table
+        st.subheader("⏱️ Shift Summary & Workload Breakdown")
+        summary_data = {
+            "Metric Description": [
+                "Total Active Mold Stations in Circuit",
+                "Net Active Work per Circuit (Walk + Load)",
+                "Allowance Multiplier (Fatigue + Personal)",
+                "Total Adjusted Circuit Time",
+                "Operator Direct Working Time (%)",
+                "Operator Allowance / Recovery Time (%)"
+            ],
+            "Value": [
+                f"{num_molds} stations",
+                f"{net_active_work:.1f} seconds",
+                f"{total_allowance_multiplier * 100 - 100:.1f}%",
+                f"{adjusted_circuit_time:.1f} seconds",
+                f"{operator_utilization:.1f}%",
+                f"{100 - operator_utilization:.1f}%"
+            ]
+        }
+        st.table(pd.DataFrame(summary_data))

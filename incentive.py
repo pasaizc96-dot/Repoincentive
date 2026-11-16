@@ -110,7 +110,7 @@ for m in edited_molds:
 # Append empty stations row explicitly into the report summary if any exist
 if empty_stations > 0:
     active_mold_summary.append({
-        'Mold Type': '⚠️ Empty Walk-Through Station(s)',
+        'Mold Type': 'Empty Walk-Through Station(s)',
         'Units': empty_stations,
         'Press (s)': '0',
         'Load (s)': '0'
@@ -158,4 +158,96 @@ if run_calc:
                 max_possible_efficiency_pct = (mold_baseline_hourly_out / max_mold_hourly_out) * 100 if max_mold_hourly_out > 0 else 0
                 
                 mold_breakdown.append({
-                    'Station ID': m['
+                    'Station ID': m['id'],
+                    'Press (s)': m['p'],
+                    'Load (s)': m['l'],
+                    'Min Cycle (s)': machine_min_cycle,
+                    'Visit Interval (s)': round(actual_visit_interval, 1),
+                    'Machine Util (%)': round(m_util, 1),
+                    'Baseline PPH': round(mold_baseline_hourly_out, 1),
+                    'Absolute Max PPH': round(max_mold_hourly_out, 1),
+                    'Efficiency vs Cap (%)': round(max_possible_efficiency_pct, 1)
+                })
+                
+            adjusted_baseline_hourly_output = total_raw_baseline_hourly_output * (1.0 - total_allowance_decimal)
+            overall_efficiency_ratio = (total_raw_baseline_hourly_output / total_absolute_max_hourly_output * 100) if total_absolute_max_hourly_output > 0 else 0
+
+            # --- 5. IE TECHNICAL DATA (ON-SCREEN ONLY, EXCLUDED FROM PRINT) ---
+            st.markdown('<div class="no-print">', unsafe_allow_html=True)
+            st.divider()
+            st.subheader("IE Technical & Baseline Analysis (Screen Only)")
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            col1.metric("Raw Baseline PPH", f"{total_raw_baseline_hourly_output:.1f}")
+            col2.metric("F&P Adjusted Baseline PPH", f"{adjusted_baseline_hourly_output:.1f}")
+            col3.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}")
+            col4.metric("Operator Active Workload", f"{operator_active_utilization:.1f}%")
+            col5.metric("Circuit Balance Ratio", f"{overall_efficiency_ratio:.1f}%")
+
+            st.caption(
+                f"Circuit Timing: Total Circuit Stops = {total_circuit_stops} "
+                f"({num_active_molds} active + {empty_stations} empty slots) | "
+                f"Net Active Work = {net_active_work:.1f}s "
+                f"(Walk: {total_walking_in_circuit:.1f}s + Load: {total_loading_in_circuit:.1f}s) | "
+                f"Base Circuit Time = {base_circuit_time:.1f}s | "
+                f"F&P Deduction = {total_allowance_pct:.1f}%"
+            )
+
+            with st.expander("Station-by-Station Cycle & Baseline Breakdown", expanded=False):
+                st.dataframe(pd.DataFrame(mold_breakdown), use_container_width=True, hide_index=True)
+            
+            st.divider()
+            st.subheader("A5 Printable Operator Sign-Off Sheet")
+            st.caption("Press Ctrl + P (or Cmd + P) and set paper size to A5 to print.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- 6. COMPACT A5 PRINTABLE OPERATOR SUMMARY ---
+            with st.container(border=True):
+                st.markdown("### Operator Assignment & Incentive Targets")
+                
+                h_col1, h_col2, h_col3 = st.columns(3)
+                h_col1.markdown("**Operator:** __________________")
+                h_col2.markdown("**Date:** ____________")
+                h_col3.markdown(f"**Shift:** {shift_hours:.1f} Hrs (Empty Slots: {empty_stations})")
+
+                tbl_col1, tbl_col2 = st.columns([1.1, 1.2])
+
+                with tbl_col1:
+                    st.markdown("**1. Assigned Molds Configuration**")
+                    df_molds_print = pd.DataFrame(active_mold_summary)
+                    st.table(df_molds_print)
+
+                with tbl_col2:
+                    st.markdown("**2. Shift Incentive Objectives**")
+                    target_rows = []
+                    tiers = [
+                        ("100% Standard", 1.00),
+                        ("110% Target", 1.10),
+                        ("120% Target", 1.20),
+                        ("130% Target", 1.30),
+                        ("140% Target", 1.40)
+                    ]
+                    for tier_name, mult in tiers:
+                        pph = adjusted_baseline_hourly_output * mult
+                        daily_pcs = pph * shift_hours
+                        status = "Cap Exceeded" if pph > total_absolute_max_hourly_output else "Achievable"
+                        target_rows.append({
+                            "Tier": tier_name,
+                            "PPH": f"{pph:.1f}",
+                            f"Shift ({shift_hours:.0f}h)": f"{daily_pcs:.0f}",
+                            "Status": status
+                        })
+                    st.table(pd.DataFrame(target_rows))
+
+                st.markdown("**3. Operator Notes / Downtime:**")
+                st.markdown("• _________________________________________________________________________________")
+                st.markdown("• _________________________________________________________________________________")
+
+                sig1, sig2 = st.columns(2)
+                with sig1:
+                    st.markdown("**Operator Signature:** _____________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
+                with sig2:
+                    st.markdown("**Supervisor Signature:** ___________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Calculation error encountered: {e}")

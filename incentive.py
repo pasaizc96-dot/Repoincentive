@@ -81,74 +81,87 @@ if st.button("🚀 Calculate Operator Productivity & Incentive KPIs"):
         # Apply F&P Allowances to total operator time required per circuit
         adjusted_circuit_time = base_circuit_time * total_allowance_multiplier
         
-        # 3. Output Calculations per mold station within the adjusted circuit framework
+        # 3. Output Calculations per mold station within the circuit framework vs Theoretical Max
         mold_breakdown = []
-        total_hourly_output = 0
+        total_baseline_hourly_output = 0
+        total_absolute_max_hourly_output = 0
         
         for m in active_molds:
             machine_min_cycle = m['p'] + m['l']
-            # How many circuits must pass before this specific mold station is serviced again?
+            
+            # ABSOLUTE THEORETICAL MAX (Machine Capped with 0 operator wait time)
+            max_mold_hourly_out = (3600 / machine_min_cycle) * parts_per_cycle
+            total_absolute_max_hourly_output += max_mold_hourly_out
+            
+            # ACTUAL BASELINE (Limited by operator circuit interval)
             circuits_needed = math.ceil(machine_min_cycle / adjusted_circuit_time)
             actual_visit_interval = circuits_needed * adjusted_circuit_time
+            mold_baseline_hourly_out = (3600 / actual_visit_interval) * parts_per_cycle
+            total_baseline_hourly_output += mold_baseline_hourly_out
             
-            # Hourly output for this mold station
-            mold_hourly_out = (3600 / actual_visit_interval) * parts_per_cycle
-            total_hourly_output += mold_hourly_out
-            
-            # Machine utilization percentage
+            # Machine utilization and max achievable efficiency ratio for this station
             m_util = (machine_min_cycle / actual_visit_interval) * 100
+            max_possible_efficiency_pct = (mold_baseline_hourly_out / max_mold_hourly_out) * 100
             
             mold_breakdown.append({
                 'Station ID': m['id'],
-                'Press Time (s)': m['p'],
-                'Load Time (s)': m['l'],
-                'Circuits per Visit': circuits_needed,
+                'Press (s)': m['p'],
+                'Load (s)': m['l'],
+                'Min Cycle (s)': machine_min_cycle,
                 'Visit Interval (s)': round(actual_visit_interval, 1),
-                'Machine Utilization (%)': round(m_util, 1),
-                'Output (Parts/Hr)': round(mold_hourly_out, 1)
+                'Machine Util (%)': round(m_util, 1),
+                'Baseline PPH': round(mold_baseline_hourly_out, 1),
+                'Absolute Max PPH': round(max_mold_hourly_out, 1),
+                'Max Achievable Cap (%)': round(max_possible_efficiency_pct, 1)
             })
             
-        # Operator Utilization (How busy the operator is including allowances vs total time)
+        # Overall factory/operator metrics
         operator_utilization = (net_active_work / adjusted_circuit_time) * 100
+        overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max_hourly_output) * 100
 
         # --- 5. RESULTS DISPLAY ---
         st.success("Calculations Complete!")
         
         # Top-level KPI Metrics
         col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total Output (Parts/Hour)", f"{total_hourly_output:.1f}")
-        col2.metric("Shift Output ({0} hrs)".format(int(shift_hours)), f"{total_hourly_output * shift_hours:,.0f} Parts")
+        col1.metric("Baseline Output (Parts/Hour)", f"{total_baseline_hourly_output:.1f}")
+        col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical limit if machines never waited for operator")
         col3.metric("Operator Workload / Util", f"{operator_utilization:.1f}%", help="Includes F&P allowances")
-        col4.metric("Circuit Cycle Time", f"{adjusted_circuit_time:.1f} s")
+        col4.metric("Overall Max Achievable Cap", f"{overall_max_efficiency_cap:.1f}%", delta=f"{'Machine Constrained' if overall_max_efficiency_cap < 100 else 'Fully Balanced'}", delta_color="inverse")
 
         st.divider()
 
-        # --- 6. BONUS TIER KPIS (110%, 120%, 130%, 140%) ---
-        st.subheader("🎯 Incentive Bonus Target Thresholds")
-        st.caption("Target output brackets required for operator incentive pay tiers based on baseline standard performance.")
+        # --- 6. BONUS TIER KPIS VS REALITY VALIDATION ---
+        st.subheader("🎯 Incentive Bonus Target Thresholds vs. Machine Limits")
+        st.caption("Compares standard target multipliers against the absolute machine-capped physical threshold.")
 
         tier_cols = st.columns(4)
         tiers = [
-            ("110% Tier", 1.10),
-            ("120% Tier", 1.20),
-            ("130% Tier", 1.30),
-            ("140% Tier", 1.40)
+            ("110% Target", 1.10),
+            ("120% Target", 1.20),
+            ("130% Target", 1.30),
+            ("140% Target", 1.40)
         ]
 
         for i, (tier_name, multiplier) in enumerate(tiers):
-            tier_hourly = total_hourly_output * multiplier
-            tier_shift = tier_hourly * shift_hours
+            target_hourly = total_baseline_hourly_output * multiplier
+            is_capped = target_hourly > total_absolute_max_hourly_output
+            
             with tier_cols[i]:
                 st.metric(
                     label=tier_name,
-                    value=f"{tier_hourly:.1f} PPH",
-                    delta=f"{tier_shift:,.0f} parts/shift"
+                    value=f"{target_hourly:.1f} PPH",
+                    delta="⚠️ Exceeds Machine Cap!" if is_capped else "✅ Achievable",
+                    delta_color="off" if is_capped else "normal"
                 )
+
+        if overall_max_efficiency_cap < 140:
+            st.warning(f"💡 **Engineering Note:** Because your layout's absolute machine cap is **{overall_max_efficiency_cap:.1f}%** of baseline scaling, a flat 140% bonus target is physically impossible to achieve due to machine cure time bottlenecks. Consider capping incentive tiers at the **Absolute Machine Cap ({overall_max_efficiency_cap:.1f}%)** or rebalancing mold counts.")
 
         st.divider()
 
         # --- 7. DETAILED MOLD BREAKDOWN TABLE ---
-        st.subheader("📋 Individual Mold Station Performance Breakdown")
+        st.subheader("📋 Individual Mold Station Performance & Ceiling Breakdown")
         df_molds = pd.DataFrame(mold_breakdown)
         st.dataframe(df_molds, use_container_width=True)
         
@@ -161,7 +174,7 @@ if st.button("🚀 Calculate Operator Productivity & Incentive KPIs"):
                 "Allowance Multiplier (Fatigue + Personal)",
                 "Total Adjusted Circuit Time",
                 "Operator Direct Working Time (%)",
-                "Operator Allowance / Recovery Time (%)"
+                "Overall Line Efficiency vs Absolute Machine Cap"
             ],
             "Value": [
                 f"{num_molds} stations",
@@ -169,7 +182,7 @@ if st.button("🚀 Calculate Operator Productivity & Incentive KPIs"):
                 f"{total_allowance_multiplier * 100 - 100:.1f}%",
                 f"{adjusted_circuit_time:.1f} seconds",
                 f"{operator_utilization:.1f}%",
-                f"{100 - operator_utilization:.1f}%"
+                f"{overall_max_efficiency_cap:.1f}%"
             ]
         }
         st.table(pd.DataFrame(summary_data))

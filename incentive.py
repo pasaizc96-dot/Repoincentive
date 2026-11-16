@@ -4,7 +4,7 @@ import math
 
 # --- 1. APP CONFIG ---
 st.set_page_config(page_title="Single Operator Mold Productivity & Incentive Planner", layout="wide")
-st.title("👤 Single Operator Multi-Mold Productivity & Bonus Calculator")
+st.title("👤 Single Operator Multi-Mold Productivity & Incentive Planner")
 
 # --- 2. SIDEBAR: ALLOWANCES & PARAMETERS ---
 with st.sidebar:
@@ -14,7 +14,7 @@ with st.sidebar:
     fatigue_pct = st.number_input("Fatigue Allowance (%)", value=8.0, step=0.5)
     personal_pct = st.number_input("Personal Needs Allowance (%)", value=6.0, step=0.5)
     total_allowance_multiplier = 1.0 + ((fatigue_pct + personal_pct) / 100.0)
-    st.caption(f"Total F&P Allowance Multiplier: **{total_allowance_multiplier:.3f}x**")
+    st.caption(f"F&P Allowance Factor: **{total_allowance_multiplier:.3f}x** (Standard Time / Normal Time)")
     
     st.divider()
     st.header("🚶 Physical Constraints")
@@ -46,7 +46,7 @@ edited_molds = st.data_editor(
     }
 )
 
-# Unpack multiple units into individual stations for circuit simulation safely
+# Unpack multiple units into individual stations safely
 active_molds = []
 for m in edited_molds:
     try:
@@ -63,7 +63,7 @@ for m in edited_molds:
                     'p': press_time,
                     'l': load_time
                 })
-    except Exception as e:
+    except Exception:
         continue
 
 # --- 4. EXECUTION BUTTON ---
@@ -76,21 +76,20 @@ if run_calc:
         try:
             num_molds = len(active_molds)
             
-            # 1. Active work per complete operator circuit (visiting every individual mold station once)
-            total_walking_in_circuit = num_molds * walk_time
-            total_loading_in_circuit = sum(m['l'] for m in active_molds)
-            net_active_work = total_walking_in_circuit + total_loading_in_circuit
+            # 1. Normal Time Calculations (Pure Active Work & Machine Constraints)
+            net_normal_walk = num_molds * walk_time
+            net_normal_load = sum(m['l'] for m in active_molds)
+            normal_active_work = net_normal_walk + net_normal_load
             
-            # 2. Maximum machine constraint in the circuit
             max_machine_constraint = max([m['p'] + m['l'] for m in active_molds])
             
-            # Operator baseline cycle time for the circuit (pacing)
-            base_circuit_time = max(net_active_work, max_machine_constraint)
+            # Base Normal Circuit Pacing Time
+            base_normal_circuit_time = max(normal_active_work, max_machine_constraint)
             
-            # Apply F&P Allowances to total operator time required per circuit
-            adjusted_circuit_time = base_circuit_time * total_allowance_multiplier
+            # Standard Circuit Time (Normal Time * Allowance Multiplier)
+            standard_circuit_time = base_normal_circuit_time * total_allowance_multiplier
             
-            # 3. Output Calculations per mold station within the circuit framework vs Theoretical Max
+            # 2. Output Calculations per mold station using Standard Circuit Time pacing
             mold_breakdown = []
             total_baseline_hourly_output = 0
             total_absolute_max_hourly_output = 0
@@ -98,14 +97,14 @@ if run_calc:
             for m in active_molds:
                 machine_min_cycle = m['p'] + m['l']
                 
-                # ABSOLUTE THEORETICAL MAX (Machine Capped with 0 operator wait time)
+                # Absolute Theoretical Max (Machine Capped with 0 operator wait time)
                 max_mold_hourly_out = (3600 / machine_min_cycle) * parts_per_cycle if machine_min_cycle > 0 else 0
                 total_absolute_max_hourly_output += max_mold_hourly_out
                 
-                # ACTUAL BASELINE (Limited by operator circuit interval)
-                if adjusted_circuit_time > 0:
-                    circuits_needed = math.ceil(machine_min_cycle / adjusted_circuit_time)
-                    actual_visit_interval = circuits_needed * adjusted_circuit_time
+                # Actual Baseline Output (Paced by Standard Circuit Time)
+                if standard_circuit_time > 0:
+                    circuits_needed = math.ceil(machine_min_cycle / standard_circuit_time)
+                    actual_visit_interval = circuits_needed * standard_circuit_time
                 else:
                     circuits_needed = 1
                     actual_visit_interval = machine_min_cycle
@@ -113,7 +112,7 @@ if run_calc:
                 mold_baseline_hourly_out = (3600 / actual_visit_interval) * parts_per_cycle if actual_visit_interval > 0 else 0
                 total_baseline_hourly_output += mold_baseline_hourly_out
                 
-                # Machine utilization and max achievable efficiency ratio for this station
+                # Machine utilization & maximum achievable efficiency cap
                 m_util = (machine_min_cycle / actual_visit_interval) * 100 if actual_visit_interval > 0 else 0
                 max_possible_efficiency_pct = (mold_baseline_hourly_out / max_mold_hourly_out) * 100 if max_mold_hourly_out > 0 else 0
                 
@@ -129,8 +128,9 @@ if run_calc:
                     'Max Achievable Cap (%)': round(max_possible_efficiency_pct, 1)
                 })
                 
-            # Overall factory/operator metrics
-            operator_utilization = (net_active_work / adjusted_circuit_time) * 100 if adjusted_circuit_time > 0 else 0
+            # Operator Performance Index (Standard Time allowance scaling)
+            # Working continuously at standard pace yields a 100% standard rating scaled by allowances (e.g., 114%)
+            operator_standard_performance_pct = total_allowance_multiplier * 100
             
             if total_absolute_max_hourly_output > 0:
                 overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max_hourly_output) * 100
@@ -144,73 +144,9 @@ if run_calc:
             col1, col2, col3, col4 = st.columns(4)
             col1.metric("Baseline Output (Parts/Hour)", f"{total_baseline_hourly_output:.1f}")
             col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical limit if machines never waited for operator")
-            col3.metric("Operator Workload / Util", f"{operator_utilization:.1f}%", help="Includes F&P allowances")
+            col3.metric("Operator Standard Pace Index", f"{operator_standard_performance_pct:.1f}%", help="Standard performance rating including F&P allowance buffer")
             col4.metric("Baseline vs Machine Cap", f"{overall_max_efficiency_cap:.1f}%", delta="Machine Constrained" if overall_max_efficiency_cap < 100 else "Fully Balanced", delta_color="inverse")
 
             st.divider()
 
-            # --- 6. BONUS TIER KPIS VS REALITY VALIDATION ---
-            st.subheader("🎯 Incentive Bonus Target Thresholds vs. Machine Limits")
-            st.caption("Validating target output brackets against the absolute machine-capped physical threshold.")
-
-            tier_cols = st.columns(4)
-            tiers = [
-                ("110% Target", 1.10),
-                ("120% Target", 1.20),
-                ("130% Target", 1.30),
-                ("140% Target", 1.40)
-            ]
-
-            for i, (tier_name, multiplier) in enumerate(tiers):
-                target_hourly = total_baseline_hourly_output * multiplier
-                
-                # Check if target exceeds the absolute machine capacity limit
-                is_physically_impossible = target_hourly > total_absolute_max_hourly_output
-                
-                with tier_cols[i]:
-                    if is_physically_impossible:
-                        st.metric(
-                            label=tier_name,
-                            value=f"{target_hourly:.1f} PPH",
-                            delta="❌ Not Achievable (Machine Capped)",
-                            delta_color="inverse"
-                        )
-                    else:
-                        st.metric(
-                            label=tier_name,
-                            value=f"{target_hourly:.1f} PPH",
-                            delta="✅ Achievable",
-                            delta_color="normal"
-                        )
-
-            st.divider()
-
-            # --- 7. DETAILED MOLD BREAKDOWN TABLE ---
-            st.subheader("📋 Individual Mold Station Performance & Ceiling Breakdown")
-            df_molds = pd.DataFrame(mold_breakdown)
-            st.dataframe(df_molds, use_container_width=True)
-            
-            # Shift breakdown summary table
-            st.subheader("⏱️ Shift Summary & Workload Breakdown")
-            summary_data = {
-                "Metric Description": [
-                    "Total Active Mold Stations in Circuit",
-                    "Net Active Work per Circuit (Walk + Load)",
-                    "Allowance Multiplier (Fatigue + Personal)",
-                    "Total Adjusted Circuit Time",
-                    "Operator Direct Working Time (%)",
-                    "Baseline Efficiency vs Absolute Machine Cap"
-                ],
-                "Value": [
-                    f"{num_molds} stations",
-                    f"{net_active_work:.1f} seconds",
-                    f"{total_allowance_multiplier * 100 - 100:.1f}%",
-                    f"{adjusted_circuit_time:.1f} seconds",
-                    f"{operator_utilization:.1f}%",
-                    f"{overall_max_efficiency_cap:.1f}%"
-                ]
-            }
-            st.table(pd.DataFrame(summary_data))
-            
-        except Exception as e:
-            st.error(f"⚠️ Calculation error encountered: {e}")
+            # --- 6.

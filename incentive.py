@@ -184,3 +184,59 @@ if run_calc:
                 # Header Information
                 h_col1, h_col2, h_col3 = st.columns(3)
                 h_col1.markdown("**Operator:** __________________")
+                h_col2.markdown("**Date:** ____________")
+                h_col3.markdown(f"**Shift:** {shift_hours:.1f} Hrs")
+
+                p_col1, p_col2 = st.columns(2)
+                p_col1.markdown(f"**Walk Time:** {walk_time:.1f}s | **Parts/Cycle:** {parts_per_cycle}")
+                p_col2.markdown(f"**F&P Deduction:** {total_allowance_pct:.1f}%")
+
+                st.markdown("---")
+
+                # 100% - 140% Objectives Table
+                st.markdown("**1. Incentive Objectives (100% - 140%)**")
+                target_rows = []
+                tiers = [
+                    ("100% Standard", 1.00),
+                    ("110% Target", 1.10),
+                    ("120% Target", 1.20),
+                    ("130% Target", 1.30),
+                    ("140% Target", 1.40)
+                ]
+                for tier_name, mult in tiers:
+                    pph = adjusted_baseline_hourly_output * mult
+                    daily_pcs = pph * shift_hours
+                    status = "Not Achievable" if pph > total_absolute_max_hourly_output else "Achievable"
+                    target_rows.append({
+                        "Objective Tier": tier_name,
+                        "Hourly (PPH)": f"{pph:.1f}",
+                        f"Shift Total ({shift_hours}h)": f"{daily_pcs:.0f}",
+                        "Status": status
+                    })
+                st.table(pd.DataFrame(target_rows))
+
+                # Assigned Molds Table (Padded to 8 rows max for consistent A5 sizing)
+                st.markdown("**2. Assigned Molds**")
+                padded_molds = active_mold_summary.copy()
+                while len(padded_molds) < 8:
+                    padded_molds.append({'Mold Type': '---', 'Units': '', 'Press (s)': '', 'Load (s)': '', 'Min Cycle (s)': ''})
+                st.table(pd.DataFrame(padded_molds[:8]))
+
+                # Operator Feedback Blank Rows
+                st.markdown("**3. Operator Feedback & Downtime Notes:**")
+                st.markdown("• _________________________________________________________________________________")
+                st.markdown("• _________________________________________________________________________________")
+
+                st.markdown("---")
+                
+                # Sign-Off Footer
+                sig1, sig2 = st.columns(2)
+                with sig1:
+                    st.markdown("**Operator Signature:**")
+                    st.markdown("___________________________ &nbsp;&nbsp; Date: _________", unsafe_allow_html=True)
+                with sig2:
+                    st.markdown("**Supervisor / IE Signature:**")
+                    st.markdown("___________________________ &nbsp;&nbsp; Date: _________", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"⚠️ Calculation error encountered: {e}")

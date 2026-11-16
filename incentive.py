@@ -145,4 +145,43 @@ if run_calc:
                 mold_baseline_hourly_out = (3600 / actual_visit_interval) * parts_per_cycle if actual_visit_interval > 0 else 0
                 total_raw_baseline_hourly_output += mold_baseline_hourly_out
                 
-                m_util = (machine_min_cycle / actual_visit_interval) * 100 if actual
+                m_util = (machine_min_cycle / actual_visit_interval) * 100 if actual_visit_interval > 0 else 0
+                max_possible_efficiency_pct = (mold_baseline_hourly_out / max_mold_hourly_out) * 100 if max_mold_hourly_out > 0 else 0
+                
+                mold_breakdown.append({
+                    'Station ID': m['id'],
+                    'Press (s)': m['p'],
+                    'Load (s)': m['l'],
+                    'Min Cycle (s)': machine_min_cycle,
+                    'Visit Interval (s)': round(actual_visit_interval, 1),
+                    'Machine Util (%)': round(m_util, 1),
+                    'Baseline PPH': round(mold_baseline_hourly_out, 1),
+                    'Absolute Max PPH': round(max_mold_hourly_out, 1),
+                    'Efficiency vs Cap (%)': round(max_possible_efficiency_pct, 1)
+                })
+                
+            adjusted_baseline_hourly_output = total_raw_baseline_hourly_output * (1.0 - total_allowance_decimal)
+            overall_efficiency_ratio = (total_raw_baseline_hourly_output / total_absolute_max_hourly_output * 100) if total_absolute_max_hourly_output > 0 else 0
+
+            # --- 5. IE TECHNICAL DATA (ON-SCREEN ONLY, EXCLUDED FROM PRINT) ---
+            st.markdown('<div class="no-print">', unsafe_allow_html=True)
+            st.divider()
+            st.subheader("IE Technical & Baseline Analysis (Screen Only)")
+            
+            col1, col2, col3, col4, col5 = st.columns(5)
+            col1.metric("Raw Baseline PPH", f"{total_raw_baseline_hourly_output:.1f}")
+            col2.metric("F&P Adjusted Baseline PPH", f"{adjusted_baseline_hourly_output:.1f}")
+            col3.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}")
+            col4.metric("Operator Active Workload", f"{operator_active_utilization:.1f}%")
+            col5.metric("Circuit Balance Ratio", f"{overall_efficiency_ratio:.1f}%")
+
+            st.caption(
+                f"Circuit Timing: Total Circuit Stations = {total_circuit_stops} "
+                f"({num_active_molds} active + {empty_stations} empty) | "
+                f"Net Active Work = {net_active_work:.1f}s "
+                f"(Walk: {total_walking_in_circuit:.1f}s + Load: {total_loading_in_circuit:.1f}s) | "
+                f"Base Circuit Time = {base_circuit_time:.1f}s | "
+                f"F&P Deduction = {total_allowance_pct:.1f}%"
+            )
+
+            with st.expander("Station-by-Station Cycle & Baseline Breakdown", expanded=False):

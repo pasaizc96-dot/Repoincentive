@@ -199,4 +199,24 @@ if run_calc:
             summary_data = {
                 "Metric Description": [
                     "Total Active Mold Stations in Circuit",
-                    "Net Active Work per Circuit (Walk
+                    "Net Active Work per Circuit (Walk + Load)",
+                    "Allowance Incentive Multiplier (Fatigue + Personal)",
+                    "Base Circuit Cycle Time",
+                    "Operator Direct Working Time (%)",
+                    "Raw Baseline Output (PPH)",
+                    "Earned Incentive Baseline Output (PPH)"
+                ],
+                "Value": [
+                    f"{num_molds} stations",
+                    f"{net_active_work:.1f} seconds",
+                    f"{total_allowance_multiplier * 100 - 100:.1f}% (Factor: {total_allowance_multiplier:.3f}x)",
+                    f"{base_circuit_time:.1f} seconds",
+                    f"{operator_utilization:.1f}%",
+                    f"{total_raw_baseline_hourly_output:.1f} PPH",
+                    f"{total_adjusted_baseline_hourly_output:.1f} PPH"
+                ]
+            }
+            st.table(pd.DataFrame(summary_data))
+            
+        except Exception as e:
+            st.error(f"⚠️ Calculation error encountered: {e}")

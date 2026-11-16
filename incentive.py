@@ -10,7 +10,6 @@ st.title("👤 Single Operator Multi-Mold Productivity & Incentive Planner")
 with st.sidebar:
     st.header("⚙️ Industrial Engineering Factors")
     
-    # Allowances
     fatigue_pct = st.number_input("Fatigue Allowance (%)", value=8.0, step=0.5)
     personal_pct = st.number_input("Personal Needs Allowance (%)", value=6.0, step=0.5)
     total_allowance_multiplier = 1.0 + ((fatigue_pct + personal_pct) / 100.0)
@@ -66,10 +65,8 @@ for m in edited_molds:
     except Exception:
         continue
 
-# --- 4. EXECUTION BUTTON ---
-run_calc = st.button('🚀 Calculate Operator Productivity & Incentive KPIs')
-
-if run_calc:
+# --- 4. EXECUTION BUTTON & LOGIC ---
+if st.button('🚀 Calculate Operator Productivity & Incentive KPIs'):
     if not active_molds:
         st.error("⚠️ **No valid active molds found!** Please ensure at least one mold has 'Number of Units' > 0 and a 'Press / Cure Time' greater than 0.")
     else:
@@ -175,9 +172,3 @@ if run_calc:
                     else:
                         st.metric(
                             label=tier_name,
-                            value=f"{target_hourly:.1f} PPH",
-                            delta="✅ Achievable",
-                            delta_color="normal"
-                        )
-
-            st

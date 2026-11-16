@@ -185,3 +185,60 @@ if run_calc:
             )
 
             with st.expander("Station-by-Station Cycle & Baseline Breakdown", expanded=False):
+                st.dataframe(pd.DataFrame(mold_breakdown), use_container_width=True, hide_index=True)
+            
+            st.divider()
+            st.subheader("A5 Printable Operator Sign-Off Sheet")
+            st.caption("Press Ctrl + P (or Cmd + P) and set paper size to A5 to print.")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            # --- 6. COMPACT A5 PRINTABLE OPERATOR SUMMARY ---
+            with st.container(border=True):
+                st.markdown("### Operator Assignment & Incentive Targets")
+                
+                h_col1, h_col2, h_col3 = st.columns(3)
+                h_col1.markdown("**Operator:** __________________")
+                h_col2.markdown("**Date:** ____________")
+                h_col3.markdown(f"**Shift:** {shift_hours:.1f} Hrs (Empty Slots: {empty_stations})")
+
+                tbl_col1, tbl_col2 = st.columns([1.1, 1.2])
+
+                with tbl_col1:
+                    st.markdown("**1. Assigned Molds Configuration**")
+                    df_molds_print = pd.DataFrame(active_mold_summary)
+                    st.table(df_molds_print)
+
+                with tbl_col2:
+                    st.markdown("**2. Shift Incentive Objectives**")
+                    target_rows = []
+                    tiers = [
+                        ("100% Standard", 1.00),
+                        ("110% Target", 1.10),
+                        ("120% Target", 1.20),
+                        ("130% Target", 1.30),
+                        ("140% Target", 1.40)
+                    ]
+                    for tier_name, mult in tiers:
+                        pph = adjusted_baseline_hourly_output * mult
+                        daily_pcs = pph * shift_hours
+                        status = "Cap Exceeded" if pph > total_absolute_max_hourly_output else "Achievable"
+                        target_rows.append({
+                            "Tier": tier_name,
+                            "PPH": f"{pph:.1f}",
+                            f"Shift ({shift_hours:.0f}h)": f"{daily_pcs:.0f}",
+                            "Status": status
+                        })
+                    st.table(pd.DataFrame(target_rows))
+
+                st.markdown("**3. Operator Notes / Downtime:**")
+                st.markdown("• _________________________________________________________________________________")
+                st.markdown("• _________________________________________________________________________________")
+
+                sig1, sig2 = st.columns(2)
+                with sig1:
+                    st.markdown("**Operator Signature:** _____________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
+                with sig2:
+                    st.markdown("**Supervisor Signature:** ___________________ &nbsp;&nbsp; **Date:** ________", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"Calculation error encountered: {e}")

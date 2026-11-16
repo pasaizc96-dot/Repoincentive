@@ -129,24 +129,7 @@ if run_calc:
                 })
                 
             # Operator Performance Index (Standard Time allowance scaling)
-            # Working continuously at standard pace yields a 100% standard rating scaled by allowances (e.g., 114%)
             operator_standard_performance_pct = total_allowance_multiplier * 100
             
             if total_absolute_max_hourly_output > 0:
-                overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max_hourly_output) * 100
-            else:
-                overall_max_efficiency_cap = 0
-
-            # --- 5. RESULTS DISPLAY ---
-            st.success("Calculations Complete!")
-            
-            # Top-level KPI Metrics
-            col1, col2, col3, col4 = st.columns(4)
-            col1.metric("Baseline Output (Parts/Hour)", f"{total_baseline_hourly_output:.1f}")
-            col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical limit if machines never waited for operator")
-            col3.metric("Operator Standard Pace Index", f"{operator_standard_performance_pct:.1f}%", help="Standard performance rating including F&P allowance buffer")
-            col4.metric("Baseline vs Machine Cap", f"{overall_max_efficiency_cap:.1f}%", delta="Machine Constrained" if overall_max_efficiency_cap < 100 else "Fully Balanced", delta_color="inverse")
-
-            st.divider()
-
-            # --- 6.
+                overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max

@@ -208,7 +208,7 @@ if run_calc:
                 h_col1, h_col2, h_col3 = st.columns(3)
                 h_col1.markdown("**Operator:** __________________")
                 h_col2.markdown("**Date:** ____________")
-                h_col3.markdown(f"**Shift:** {shift_hours:.1f} Hrs (Empty Slots: {empty_stations})")
+                h_col3.markdown(f"**Shift:** {shift_hours:.1f} Hrs ")
 
                 tbl_col1, tbl_col2 = st.columns([1.1, 1.2])
 

@@ -132,4 +132,52 @@ if run_calc:
             operator_standard_performance_pct = total_allowance_multiplier * 100
             
             if total_absolute_max_hourly_output > 0:
-                overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max
+                overall_max_efficiency_cap = (total_baseline_hourly_output / total_absolute_max_hourly_output) * 100
+            else:
+                overall_max_efficiency_cap = 0
+
+            # --- 5. RESULTS DISPLAY ---
+            st.success("Calculations Complete!")
+            
+            # Top-level KPI Metrics
+            col1, col2, col3, col4 = st.columns(4)
+            col1.metric("Baseline Output (Parts/Hour)", f"{total_baseline_hourly_output:.1f}")
+            col2.metric("Absolute Machine Max PPH", f"{total_absolute_max_hourly_output:.1f}", help="Hard physical limit if machines never waited for operator")
+            col3.metric("Operator Standard Pace Index", f"{operator_standard_performance_pct:.1f}%", help="Standard performance rating including F&P allowance buffer")
+            col4.metric("Baseline vs Machine Cap", f"{overall_max_efficiency_cap:.1f}%", delta="Machine Constrained" if overall_max_efficiency_cap < 100 else "Fully Balanced", delta_color="inverse")
+
+            st.divider()
+
+            # --- 6. BONUS TIER KPIS VS REALITY VALIDATION ---
+            st.subheader("🎯 Incentive Bonus Target Thresholds vs. Machine Limits")
+            st.caption("Validating target output brackets against the absolute machine-capped physical threshold.")
+
+            tier_cols = st.columns(4)
+            tiers = [
+                ("110% Target", 1.10),
+                ("120% Target", 1.20),
+                ("130% Target", 1.30),
+                ("140% Target", 1.40)
+            ]
+
+            for i, (tier_name, multiplier) in enumerate(tiers):
+                target_hourly = total_baseline_hourly_output * multiplier
+                is_physically_impossible = target_hourly > total_absolute_max_hourly_output
+                
+                with tier_cols[i]:
+                    if is_physically_impossible:
+                        st.metric(
+                            label=tier_name,
+                            value=f"{target_hourly:.1f} PPH",
+                            delta="❌ Not Achievable (Machine Capped)",
+                            delta_color="inverse"
+                        )
+                    else:
+                        st.metric(
+                            label=tier_name,
+                            value=f"{target_hourly:.1f} PPH",
+                            delta="✅ Achievable",
+                            delta_color="normal"
+                        )
+
+            st

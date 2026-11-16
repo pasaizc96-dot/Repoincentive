@@ -127,6 +127,3 @@ def generate_a5_excel(target_rows, padded_molds, shift_hours, walk_time, parts_p
         ws.page_margins.right = 0.25
         ws.page_margins.top = 0.25
         ws.page_margins.bottom = 0.25
-
-        # Styling definitions
-        title_font = Font(name="

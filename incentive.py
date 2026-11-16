@@ -154,5 +154,4 @@ if run_calc:
             st.divider()
 
             # --- SECTION 2: ALLOWANCE-ADJUSTED INCENTIVE TARGETS ---
-            st.subheader("🎯 Section 2: Allowance-Adjusted Incentive Targets (100% to 140%)")
-            st.caption(f"Incentive
+            st.subheader("🎯 Section 2: Allowance-Adjusted Incentive Targets (100% to

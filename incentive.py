@@ -246,7 +246,7 @@ if run_calc:
                 sig1, sig2 = st.columns(2)
                
                 st.markdown("**Operator Signature:** ______________________")
-                st.markdown("**Supervisor Signature:** ___________________")
+                st.markdown("**Supervisor Signature:** ______________________")
 
         except Exception as e:
             st.error(f"Calculation error encountered: {e}")
